@@ -1,3 +1,4 @@
+import { app as electronApp } from 'electron';
 import express from 'express';
 import type { Server } from 'node:http';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
@@ -21,7 +22,7 @@ export async function startMcpTransport(createServer: () => McpServer): Promise<
       sessionIdGenerator: undefined, // stateless
     });
     await server.connect(transport);
-    await transport.handleRequest(req, res);
+    await transport.handleRequest(req, res, req.body);
   };
 
   app.post('/mcp', handleStreamableHttp);
@@ -49,12 +50,12 @@ export async function startMcpTransport(createServer: () => McpServer): Promise<
       res.status(400).json({ error: 'Unknown session' });
       return;
     }
-    await transport.handlePostMessage(req, res);
+    await transport.handlePostMessage(req, res, req.body);
   });
 
   // --- Health check ---
   app.get('/health', (_req, res) => {
-    res.json({ status: 'ok', name: 'Maestro', version: '1.0.0' });
+    res.json({ status: 'ok', name: 'Maestro', version: electronApp.getVersion() });
   });
 
   return new Promise((resolve) => {

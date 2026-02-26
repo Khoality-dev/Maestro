@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, Tray, Menu, nativeImage } from 'electron';
 import * as path from 'node:path';
 import { autoUpdater } from 'electron-updater';
 import { playerController } from './player/controller.js';
@@ -7,6 +7,45 @@ import { startMcpTransport } from './mcp/transport.js';
 import { ensureYtdlp } from './youtube/index.js';
 
 let mainWindow: BrowserWindow | null = null;
+let tray: Tray | null = null;
+let isQuitting = false;
+
+function createTray(): void {
+  // Use app icon if available, otherwise fall back to empty icon
+  const iconPath = process.platform === 'win32'
+    ? path.join(__dirname, '../resources/icon.ico')
+    : path.join(__dirname, '../resources/icon.png');
+  const trayIcon = nativeImage.createFromPath(iconPath);
+  // If icon file doesn't exist, createFromPath returns empty — that's fine
+
+  tray = new Tray(trayIcon);
+  tray.setToolTip('Maestro');
+
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: 'Show',
+      click: () => {
+        mainWindow?.show();
+        mainWindow?.focus();
+      },
+    },
+    { type: 'separator' },
+    {
+      label: 'Quit',
+      click: () => {
+        isQuitting = true;
+        app.quit();
+      },
+    },
+  ]);
+
+  tray.setContextMenu(contextMenu);
+
+  tray.on('double-click', () => {
+    mainWindow?.show();
+    mainWindow?.focus();
+  });
+}
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -30,6 +69,14 @@ function createWindow(): void {
   } else {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
   }
+
+  // Hide to tray instead of closing
+  mainWindow.on('close', (event) => {
+    if (!isQuitting) {
+      event.preventDefault();
+      mainWindow?.hide();
+    }
+  });
 
   mainWindow.on('closed', () => {
     mainWindow = null;
@@ -100,6 +147,7 @@ function registerIpcHandlers(): void {
 
 app.whenReady().then(async () => {
   registerIpcHandlers();
+  createTray();
   createWindow();
 
   // Ensure yt-dlp is available (downloads if needed)
@@ -114,16 +162,20 @@ app.whenReady().then(async () => {
   await startMcpTransport(createMcpServer);
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
+    if (mainWindow) {
+      mainWindow.show();
+    } else {
       createWindow();
     }
   });
 });
 
+app.on('before-quit', () => {
+  isQuitting = true;
+});
+
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit();
-  }
+  // Don't quit — tray keeps the app running
 });
 
 function setupAutoUpdater(): void {
