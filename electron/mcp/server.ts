@@ -102,6 +102,21 @@ export function createMcpServer(): McpServer {
     };
   });
 
+  server.tool('get_recently_played', 'Get the list of recently played tracks (newest first, up to 50).', {
+    limit: z.number().int().min(1).max(50).optional().describe('Max number of tracks to return (default 10)'),
+  }, async ({ limit }) => {
+    const state = playerController.getState();
+    const tracks = state.history.slice(0, limit ?? 10);
+    return {
+      content: [{
+        type: 'text' as const,
+        text: tracks.length === 0
+          ? 'No recently played tracks.'
+          : JSON.stringify(tracks, null, 2),
+      }],
+    };
+  });
+
   server.tool('search_music', 'Search YouTube for tracks without playing. Returns up to 5 results.', {
     query: z.string().describe('Search query'),
   }, async ({ query }) => {
