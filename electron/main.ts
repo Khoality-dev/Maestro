@@ -3,6 +3,7 @@ import * as path from 'node:path';
 import { playerController } from './player/controller.js';
 import { createMcpServer } from './mcp/server.js';
 import { startMcpTransport } from './mcp/transport.js';
+import { ensureYtdlp } from './youtube/index.js';
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -99,6 +100,9 @@ function registerIpcHandlers(): void {
 app.whenReady().then(async () => {
   registerIpcHandlers();
   createWindow();
+
+  // Ensure yt-dlp is available (downloads if needed)
+  ensureYtdlp().catch((err) => console.error('[yt-dlp] Auto-install failed:', err));
 
   // Start MCP server — factory creates fresh server per transport connection
   await startMcpTransport(createMcpServer);
