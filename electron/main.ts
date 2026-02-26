@@ -1,5 +1,6 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog } from 'electron';
 import * as path from 'node:path';
+import { autoUpdater } from 'electron-updater';
 import { playerController } from './player/controller.js';
 import { createMcpServer } from './mcp/server.js';
 import { startMcpTransport } from './mcp/transport.js';
@@ -104,6 +105,11 @@ app.whenReady().then(async () => {
   // Ensure yt-dlp is available (downloads if needed)
   ensureYtdlp().catch((err) => console.error('[yt-dlp] Auto-install failed:', err));
 
+  // Auto-update (skip in dev)
+  if (!process.env.VITE_DEV_SERVER_URL) {
+    setupAutoUpdater();
+  }
+
   // Start MCP server — factory creates fresh server per transport connection
   await startMcpTransport(createMcpServer);
 
@@ -119,3 +125,25 @@ app.on('window-all-closed', () => {
     app.quit();
   }
 });
+
+function setupAutoUpdater(): void {
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+
+  autoUpdater.on('update-downloaded', (info) => {
+    dialog.showMessageBox({
+      type: 'info',
+      title: 'Update Ready',
+      message: `Version ${info.version} has been downloaded. Restart to apply the update.`,
+      buttons: ['Restart Now', 'Later'],
+    }).then((result) => {
+      if (result.response === 0) {
+        autoUpdater.quitAndInstall();
+      }
+    });
+  });
+
+  autoUpdater.checkForUpdatesAndNotify().catch((err) => {
+    console.error('[AutoUpdater] Check failed:', err);
+  });
+}
