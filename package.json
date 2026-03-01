@@ -11,6 +11,9 @@
   "build": {
     "appId": "com.maestro.player",
     "productName": "Maestro",
+    "directories": {
+      "output": "dist-release"
+    },
     "files": [
       "dist/**/*",
       "dist-electron/**/*"
